@@ -1,0 +1,11 @@
+.git
+.gitignore
+.env
+*.env
+*.md
+docs/
+Dockerfile
+.dockerignore
+__pycache__/
+*.pyc
+*.pyo
