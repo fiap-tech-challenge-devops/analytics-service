@@ -9,7 +9,8 @@ RUN pip install --prefix=/install --no-cache-dir -r requirements.txt
 # Stage 2: Runtime
 FROM python:3.9-alpine
 
-RUN apk --no-cache add ca-certificates wget
+RUN apk upgrade --no-cache && \
+    apk add --no-cache ca-certificates wget
 
 RUN addgroup -S togglemastergroup && adduser -S -u 10001 togglemaster -G togglemastergroup
 
