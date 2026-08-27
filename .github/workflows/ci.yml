@@ -1,11 +1,13 @@
 name: Analytics Service CI
 
 on:
-  push:
-    branches:
-      - feature/ci-python
+  workflow_dispatch:
 
   pull_request:
+    branches:
+      - main
+
+  push:
     branches:
       - main
 
