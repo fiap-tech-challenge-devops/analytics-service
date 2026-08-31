@@ -1,14 +1,15 @@
+import json
+import logging
 import os
 import sys
 import threading
-import json
-import uuid
 import time
-import logging
+import uuid
+
 import boto3
-from botocore.exceptions import NoCredentialsError, ClientError
-from flask import Flask, jsonify
+from botocore.exceptions import ClientError, NoCredentialsError
 from dotenv import load_dotenv
+from flask import Flask, jsonify
 
 # Configura o logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -135,5 +136,5 @@ def start_worker():
 start_worker()
 
 if __name__ == '__main__':
-    port = int(os.getenv("PORT", 8005))
+    port = int(os.getenv("PORT", "8005"))
     app.run(host='0.0.0.0', port=port, debug=False)
