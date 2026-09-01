@@ -1,5 +1,5 @@
 # Stage 1: Build
-FROM python:3.9-alpine AS builder
+FROM python:3.13-alpine AS builder
 
 WORKDIR /app
 
@@ -7,10 +7,11 @@ COPY requirements.txt .
 RUN pip install --prefix=/install --no-cache-dir -r requirements.txt
 
 # Stage 2: Runtime
-FROM python:3.9-alpine
+FROM python:3.13-alpine
 
 RUN apk upgrade --no-cache && \
-    apk add --no-cache ca-certificates wget
+    apk add --no-cache ca-certificates wget && \
+    pip uninstall -y pip setuptools wheel
 
 RUN addgroup -S togglemastergroup && adduser -S -u 10001 togglemaster -G togglemastergroup
 
