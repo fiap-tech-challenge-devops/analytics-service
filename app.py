@@ -10,6 +10,9 @@ import boto3
 from botocore.exceptions import ClientError, NoCredentialsError
 from dotenv import load_dotenv
 from flask import Flask, jsonify
+from opentelemetry import trace
+from opentelemetry.propagate import extract
+from opentelemetry.trace import Link, SpanKind
 
 # Configura o logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -44,8 +47,45 @@ except Exception as e:
 
 # --- SQS Worker ---
 
+tracer = trace.get_tracer("analytics-service")
+
+# Nome da fila para os atributos de mensageria (a URL termina nele)
+QUEUE_NAME = SQS_QUEUE_URL.rstrip("/").rsplit("/", 1)[-1]
+
+
+def _producer_link(message):
+    """ Monta o link para o span do produtor, a partir do traceparent da mensagem.
+
+    A convencao de mensageria usa link, e nao parent-child: um span tem um pai
+    so, e um poll traz ate 10 mensagens de traces diferentes.
+    """
+    attributes = message.get("MessageAttributes") or {}
+    carrier = {
+        key.lower(): value["StringValue"]
+        for key, value in attributes.items()
+        if value.get("StringValue")
+    }
+    span_context = trace.get_current_span(extract(carrier)).get_span_context()
+    return [Link(span_context)] if span_context.is_valid else []
+
+
 def process_message(message):
     """ Processa uma única mensagem SQS e a insere no DynamoDB """
+    with tracer.start_as_current_span(
+        f"process {QUEUE_NAME}",
+        kind=SpanKind.CONSUMER,
+        links=_producer_link(message),
+        attributes={
+            "messaging.system": "aws_sqs",
+            "messaging.operation.name": "process",
+            "messaging.destination.name": QUEUE_NAME,
+            "messaging.message.id": message.get("MessageId", ""),
+        },
+    ):
+        _handle_message(message)
+
+
+def _handle_message(message):
     try:
         log.info(f"Processando mensagem ID: {message['MessageId']}")
         body = json.loads(message['Body'])
@@ -95,7 +135,10 @@ def sqs_worker_loop():
             response = sqs_client.receive_message(
                 QueueUrl=SQS_QUEUE_URL,
                 MaxNumberOfMessages=10,  # Processa em lotes de até 10
-                WaitTimeSeconds=20
+                WaitTimeSeconds=20,
+                # Sem isto o traceparent nao chega e a correlacao com o
+                # produtor nao existe.
+                MessageAttributeNames=['All']
             )
             
             messages = response.get('Messages', [])
